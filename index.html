@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER‑GRID | Next‑Gen Developer Portfolio</title>
+    
+    <!-- Local fonts (you need to download these and place in /fonts) 
+         For now we use Google Fonts CDN, but replace with local @font-face later -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Main stylesheet (will be updated) -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK (for real‑time features) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    
+    <!-- Lottie for chatbot animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    
+    <!-- Three.js for background (will be loaded in script.js) -->
+</head>
+<body>
+    <!-- ========== CUSTOM CURSOR ========== -->
+    <div id="custom-cursor"></div>
+    <div id="cursor-trail-container"></div>
+
+    <!-- ========== NAVIGATION ========== -->
+    <nav class="cyber-nav">
+        <div class="nav-brand glitch" data-text="SYSTEM_ROOT">SYSTEM_ROOT</div>
+        <div class="nav-links">
+            <a href="/" class="nav-item" data-link>// INIT</a>
+            <a href="/asset-store" class="nav-item" data-link>// DATABASE</a>
+            <a href="/ai-projects" class="nav-item" data-link>// AI_MODULES</a>
+            <a href="/contact" class="nav-item" data-link>// UPLINK</a>
+            
+            <!-- Only visible when logged in (handled by JS) -->
+            <a href="/admin" class="nav-item" data-link id="admin-link" style="display: none;">// ADMIN</a>
+
+            <button id="loadout-toggle" class="cyber-btn-outline">
+                LOADOUT_DATA [<span id="loadout-count" class="neon-text">0</span>]
+            </button>
+            
+            <!-- Auth buttons -->
+            <button id="login-btn" class="cyber-btn-outline">LOGIN</button>
+            <button id="signup-btn" class="cyber-btn-outline">SIGN UP</button>
+            <button id="logout-btn" class="cyber-btn-outline" style="display: none;">LOGOUT</button>
+        </div>
+    </nav>
+
+    <!-- ========== LOADOUT MODAL (shopping cart) ========== -->
+    <aside id="loadout-modal" class="glass-modal hidden">
+        <div class="modal-header">
+            <h2>> ACTIVE_LOADOUT</h2>
+            <button id="close-loadout" class="icon-btn">X</button>
+        </div>
+        <div id="loadout-items-container" class="loadout-list"></div>
+        <div class="modal-footer">
+            <button id="purge-loadout" class="cyber-btn alert-btn">PURGE_MEMORY</button>
+            <button id="deploy-loadout" class="cyber-btn">DEPLOY LOADOUT</button>
+        </div>
+    </aside>
+
+    <!-- ========== MAIN APP CONTAINER (views injected here) ========== -->
+    <main id="app-root"></main>
+
+    <!-- ========== PROJECT DETAIL MODAL ========== -->
+    <div id="item-modal" class="modal-overlay">
+        <div class="glass-modal item-detail">
+            <button class="close-btn" id="close-item-modal">&times;</button>
+            <div class="modal-content">
+                <img id="modal-img" src="" alt="Project Image">
+                <div class="modal-details">
+                    <h3 id="modal-title" class="glitch" data-text="">Title</h3>
+                    <span id="modal-category" class="neon-tag"></span>
+                    <p id="modal-desc"></p>
+                    <button id="add-to-loadout-btn" class="cyber-btn">ACQUIRE ASSET</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODULE DETAIL MODAL ========== -->
+    <div id="module-modal" class="modal-overlay">
+        <div class="glass-modal item-detail">
+            <button class="close-btn" id="close-module-modal">&times;</button>
+            <div class="modal-content">
+                <img id="module-modal-img" src="" alt="Module Image">
+                <div class="modal-details">
+                    <h3 id="module-modal-title" class="glitch" data-text="">Module</h3>
+                    <p id="module-modal-desc"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== LOGIN MODAL ========== -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="glass-modal" style="max-width: 400px;">
+            <button class="close-btn" id="close-login-modal">&times;</button>
+            <h2>> LOGIN</h2>
+            <form id="login-form">
+                <div class="input-group">
+                    <input type="email" id="login-email" required placeholder=" ">
+                    <label for="login-email">EMAIL</label>
+                    <div class="input-line"></div>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="login-password" required placeholder=" ">
+                    <label for="login-password">PASSWORD</label>
+                    <div class="input-line"></div>
+                </div>
+                <button type="submit" class="cyber-btn" style="width:100%;">AUTHENTICATE</button>
+            </form>
+            <p style="text-align:center; margin-top:1rem;">Don't have an account? <a href="#" id="switch-to-signup">Sign up</a></p>
+        </div>
+    </div>
+
+    <!-- ========== SIGNUP MODAL ========== -->
+    <div id="signup-modal" class="modal-overlay">
+        <div class="glass-modal" style="max-width: 400px;">
+            <button class="close-btn" id="close-signup-modal">&times;</button>
+            <h2>> REGISTER</h2>
+            <form id="signup-form">
+                <div class="input-group">
+                    <input type="text" id="signup-username" required placeholder=" ">
+                    <label for="signup-username">USERNAME</label>
+                    <div class="input-line"></div>
+                </div>
+                <div class="input-group">
+                    <input type="email" id="signup-email" required placeholder=" ">
+                    <label for="signup-email">EMAIL</label>
+                    <div class="input-line"></div>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="signup-password" required placeholder=" ">
+                    <label for="signup-password">PASSWORD</label>
+                    <div class="input-line"></div>
+                </div>
+                <button type="submit" class="cyber-btn" style="width:100%;">CREATE IDENTITY</button>
+            </form>
+            <p style="text-align:center; margin-top:1rem;">Already have an account? <a href="#" id="switch-to-login">Login</a></p>
+        </div>
+    </div>
+
+    <!-- ========== EXIT INTENT MODAL ========== -->
+    <div id="exit-modal" class="modal-overlay">
+        <div class="glass-modal warning-modal">
+            <button class="close-btn" id="close-exit-modal">&times;</button>
+            <div class="modal-content text-center">
+                <h2 class="glitch glitch-red" data-text="WARNING: SYSTEM DISCONNECT">WARNING: SYSTEM DISCONNECT</h2>
+                <p>Wait, the simulation isn't over yet. Are you sure you want to terminate the session?</p>
+                <button id="return-btn" class="cyber-btn">RETURN TO GRID</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== HOLOGRAPHIC CAT CHATBOT ========== -->
+    <div id="chatbot-container" style="display: none;">
+        <!-- Avatar (Lottie animation) -->
+        <div id="cat-avatar" class="cat-avatar"></div>
+        
+        <!-- Chat window -->
+        <div id="chat-window" class="glass-modal hidden">
+            <div class="modal-header">
+                <h3>🐱 HOLO‑CAT</h3>
+                <button id="close-chat" class="icon-btn">X</button>
+            </div>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off">
+                <button id="send-chat" class="cyber-btn-outline">SEND</button>
+            </div>
+        </div>
+        
+        <!-- Toggle button -->
+        <button id="toggle-chat" class="cyber-btn-outline cat-toggle">🐱</button>
+    </div>
+
+    <!-- ========== FOOTER ========== -->
+    <footer id="site-footer">
+        <div class="status">
+            <div class="route" id="footer-route">HOME</div>
+            <div class="clock" id="footer-clock">--:--:--</div>
+        </div>
+        <div class="stats" id="footer-stats">CPU:--% MEM:--%</div>
+        <div class="meta">// CYBER‑GRID — immersive demo // USER: <span id="footer-username">GUEST</span></div>
+    </footer>
+
+    <!-- ========== AUDIO ELEMENTS FOR EASTER EGGS ========== -->
+    <audio id="easter-sound" preload="auto" style="display: none;">
+        <source src="sounds/easter.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hover-sound" preload="auto" style="display: none;">
+        <source src="sounds/hover.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- ========== MAIN SCRIPT (module) ========== -->
+    <script src="script.js" type="module"></script>
+</body>
+</html>
