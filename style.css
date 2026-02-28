@@ -21,7 +21,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    cursor: none !important;
+    cursor: none !important; /* will be overridden on mobile */
 }
 
 body {
@@ -1174,18 +1174,77 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
 }
 
 /* =========================================
-   RESPONSIVE
+   FIX: Mobile Responsiveness & Input Label Overlap
    ========================================= */
 @media (max-width: 768px) {
-    .cyber-nav { padding: 1rem; flex-wrap: wrap; height: auto; }
-    .nav-links { gap: 1rem; flex-wrap: wrap; }
-    .hero-text h1 { font-size: 2.5rem; }
-    .floating-image { width: 90%; height: auto; }
-    .about-grid, .comm-grid { grid-template-columns: 1fr; }
-    .modal-content { flex-direction: column; }
-    .modal-content img { width: 100%; height: auto; }
-    .featured-grid { grid-template-columns: 1fr; }
-    .grid-container { grid-template-columns: 1fr; }
-    #chatbot-container { bottom: 70px; right: 10px; }
-    #chat-window { width: 280px; }
+    /* Disable custom cursor on mobile */
+    body {
+        cursor: auto !important;
+    }
+    #custom-cursor,
+    #cursor-trail-container,
+    .trail-particle {
+        display: none !important;
+    }
+
+    /* Adjust input groups for better spacing on small screens */
+    .input-group label {
+        font-size: 0.8rem;
+        top: 8px;
+    }
+    .input-group input,
+    .input-group textarea {
+        font-size: 1rem;
+        padding: 8px 0;
+    }
+    .input-group input:focus ~ label,
+    .input-group textarea:focus ~ label,
+    .input-group input:not(:placeholder-shown) ~ label,
+    .input-group textarea:not(:placeholder-shown) ~ label {
+        top: -18px;
+        font-size: 0.7rem;
+    }
+
+    /* General mobile layout adjustments */
+    .cyber-nav {
+        padding: 1rem;
+        flex-wrap: wrap;
+        height: auto;
+    }
+    .nav-links {
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .hero-text h1 {
+        font-size: 2.5rem;
+    }
+    .floating-image {
+        width: 90%;
+        height: auto;
+    }
+    .about-grid,
+    .comm-grid {
+        grid-template-columns: 1fr;
+    }
+    .modal-content {
+        flex-direction: column;
+    }
+    .modal-content img {
+        width: 100%;
+        height: auto;
+    }
+    .featured-grid {
+        grid-template-columns: 1fr;
+    }
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+    #chatbot-container {
+        bottom: 70px;
+        right: 10px;
+    }
+    #chat-window {
+        width: 280px;
+    }
 }

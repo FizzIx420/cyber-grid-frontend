@@ -89,7 +89,15 @@ class LoadoutManager {
 
     setupListeners() {
         document.getElementById('loadout-toggle')?.addEventListener('click', () => this.toggleModal());
-        document.getElementById('close-loadout')?.addEventListener('click', () => this.toggleModal());
+        // FIX: Ensure close button always works – re-attach listener directly
+        const closeBtn = document.getElementById('close-loadout');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleModal();
+            });
+        }
         document.getElementById('purge-loadout')?.addEventListener('click', () => this.purgeAll());
         document.getElementById('deploy-loadout')?.addEventListener('click', () => this.checkout());
     }
@@ -152,6 +160,7 @@ class LoadoutManager {
     }
 
     toggleModal() {
+        if (!this.modalEl) return;
         this.modalEl.classList.toggle('hidden');
     }
 
@@ -1193,6 +1202,12 @@ function bindCursorInteractives() {
 // 12. GLOBAL EFFECTS (Cursor, Exit Modal, Three.js)
 // ============================================
 function initCursor() {
+    // FIX: Disable custom cursor on touch devices
+    if ('ontouchstart' in window) {
+        console.log('[CURSOR] Touch device detected – disabling custom cursor');
+        return;
+    }
+
     const cursor = document.getElementById('custom-cursor');
     const trailContainer = document.getElementById('cursor-trail-container');
     if (!cursor || !trailContainer) {
