@@ -41,6 +41,7 @@ if (hasValidFirebase) {
     console.log('[FIREBASE] Skipped – using localStorage only');
 }
 
+
 // ============================================
 // 2. LOADOUT MANAGER (with optional Firebase sync)
 // ============================================
@@ -89,7 +90,6 @@ class LoadoutManager {
 
     setupListeners() {
         document.getElementById('loadout-toggle')?.addEventListener('click', () => this.toggleModal());
-        // FIX: Ensure close button always works – re-attach listener directly
         const closeBtn = document.getElementById('close-loadout');
         if (closeBtn) {
             closeBtn.addEventListener('click', (e) => {
@@ -182,13 +182,10 @@ class LoadoutManager {
     }
 
     showToast(msg) {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = msg;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+        showToast(msg);
     }
 }
+
 
 // ============================================
 // 3. DATA MODELS (with fallback)
@@ -548,6 +545,7 @@ function renderAiGrid(containerId, filter = 'all', page = 1) {
     
     observeReveal();
 }
+
 
 // ============================================
 // 6. MODAL LOGIC (projects, AI, modules)
@@ -919,16 +917,12 @@ async function deleteProduct(id) {
     }
 }
 
-// 1. Expose delete to the global window so HTML onclick can find it
 window.deleteProduct = deleteProduct;
 
-// 2. Create the missing Edit function and expose it
 window.editProduct = async function(id) {
-    // Fetch the specific product's data
     const res = await fetch(`${API_BASE}/products/${id}`);
     const product = await res.json();
 
-    // Populate the admin form with the existing data
     document.getElementById('product-title').value = product.title;
     document.getElementById('product-category').value = product.category;
     document.getElementById('product-tag').value = product.tag;
@@ -1003,17 +997,15 @@ const router = async () => {
     // Ensure the page becomes visible
     const pageView = appRoot.querySelector('.page-view');
     if (pageView) {
-        // Force reflow to restart animations
         pageView.classList.remove('visible');
         void pageView.offsetWidth;
         pageView.classList.add('visible');
         console.log('[ROUTER] Page view made visible');
     } else {
         console.warn('[ROUTER] No .page-view element in view – adding fallback');
-        // If no .page-view, create one to avoid blank page
         const fallbackDiv = document.createElement('div');
         fallbackDiv.className = 'page-view visible';
-        fallbackDiv.innerHTML = viewHtml; // wrap existing content
+        fallbackDiv.innerHTML = viewHtml;
         appRoot.innerHTML = '';
         appRoot.appendChild(fallbackDiv);
     }
@@ -1075,110 +1067,81 @@ const router = async () => {
             });
         }
         updateFooter(match.path);
-        bindCardClicks();
         bindCursorInteractives();
     }, 10);
 };
 
 // ============================================
-// 11. VIEW‑SPECIFIC FUNCTIONS
+// 11. VIEW‑SPECIFIC FUNCTIONS (updated to remove bindCardClicks)
 // ============================================
 function initHero3D() {
+    // 3D tilt effect on hero card
     const heroCard = document.getElementById('hero-card');
-    const heroContainer = document.getElementById('hero-container');
-    if (!heroCard || !heroContainer) return;
-    heroContainer.addEventListener('mousemove', (e) => {
-        const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
-        const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
-        heroCard.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+    if (!heroCard) return;
+    heroCard.addEventListener('mousemove', (e) => {
+        const rect = heroCard.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = (y - centerY) / 20;
+        const rotateY = (centerX - x) / 20;
+        heroCard.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
     });
-    heroContainer.addEventListener('mouseleave', () => {
-        heroCard.style.transform = `rotateY(0deg) rotateX(0deg)`;
-        heroCard.style.transition = `transform 0.5s ease`;
-    });
-    heroContainer.addEventListener('mouseenter', () => {
-        heroCard.style.transition = `none`;
+    heroCard.addEventListener('mouseleave', () => {
+        heroCard.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1,1,1)';
     });
 }
 
 function bindModuleClicks() {
-    document.querySelectorAll('.module-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const id = card.getAttribute('data-module-id');
-            openModuleModal(id);
-        });
-    });
+    // Already handled by global delegation, but we keep for any direct listeners if needed
 }
 
 function bindFeaturedClicks() {
-    document.querySelectorAll('.featured-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const id = card.getAttribute('data-project-id');
-            openProjectModal(id);
-        });
-    });
+    // Already handled by global delegation
 }
 
 function initFilterButtons(gridId, renderFunc, isAi = false) {
     const filterBtns = document.querySelectorAll('.filter-btn');
     filterBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            const filter = e.target.dataset.filter;
+            btn.classList.add('active');
+            const filter = btn.getAttribute('data-filter');
             if (isAi) {
                 currentAiFilter = filter;
                 currentAiPage = 1;
-                renderFunc(gridId, filter, 1);
+                renderAiGrid(gridId, currentAiFilter, currentAiPage);
             } else {
                 currentFilter = filter;
                 currentPage = 1;
-                renderFunc(gridId, filter, 1);
+                renderProjectGrid(gridId, currentFilter, currentPage);
             }
-        });
-    });
-}
-
-function bindCardClicks() {
-    document.querySelectorAll('.card').forEach(card => {
-        card.addEventListener('click', (e) => {
-            if (e.target.classList.contains('quick-view')) return;
-            const projectId = card.dataset.projectId;
-            const aiId = card.dataset.aiId;
-            if (projectId) openProjectModal(projectId);
-            else if (aiId) openAiModal(aiId);
-        });
-    });
-    document.querySelectorAll('.quick-view').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const id = btn.dataset.quickId || btn.dataset.quickAiId;
-            if (btn.dataset.quickId) openProjectModal(id);
-            else if (btn.dataset.quickAiId) openAiModal(id);
         });
     });
 }
 
 function initContactForm() {
     const form = document.getElementById('cyber-contact-form');
-    if (!form) return;
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const name = document.getElementById('sender-name').value;
-        const email = document.getElementById('sender-email').value;
-        const message = document.getElementById('sender-msg').value;
-        const res = await fetch(`${API_BASE}/contact`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, message })
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('sender-name').value;
+            const email = document.getElementById('sender-email').value;
+            const message = document.getElementById('sender-msg').value;
+            const res = await fetch(`${API_BASE}/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message })
+            });
+            if (res.ok) {
+                showToast('// Message transmitted');
+                form.reset();
+            } else {
+                showToast('// Transmission failed');
+            }
         });
-        if (res.ok) {
-            showToast('// Message transmitted');
-            form.reset();
-        } else {
-            showToast('// Transmission failed');
-        }
-    });
+    }
 }
 
 function initOutro() {
@@ -1192,9 +1155,11 @@ function initOutro() {
 
 function bindCursorInteractives() {
     const cursor = document.getElementById('custom-cursor');
-    document.querySelectorAll('button, a, .card, .module-card, .featured-card, input, textarea, .social-icon').forEach(el => {
-        el.addEventListener('mouseenter', () => cursor.classList.add('active'));
-        el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+    if (!cursor) return;
+    const interactives = document.querySelectorAll('button, a, .card, .module-card, .featured-card, input, textarea');
+    interactives.forEach(el => {
+        el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+        el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
     });
 }
 
@@ -1202,7 +1167,7 @@ function bindCursorInteractives() {
 // 12. GLOBAL EFFECTS (Cursor, Exit Modal, Three.js)
 // ============================================
 function initCursor() {
-    // FIX: Disable custom cursor on touch devices
+    // Disable custom cursor on touch devices
     if ('ontouchstart' in window) {
         console.log('[CURSOR] Touch device detected – disabling custom cursor');
         return;
@@ -1217,17 +1182,14 @@ function initCursor() {
     
     console.log('[CURSOR] Initializing custom cursor system');
     
-    // Force cursor visibility
     cursor.style.display = 'block';
     cursor.style.visibility = 'visible';
     cursor.style.opacity = '1';
     cursor.style.zIndex = '99999';
     cursor.style.pointerEvents = 'none';
     
-    // Hide native cursor
     document.body.style.cursor = 'none';
     
-    // Set initial position
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2;
     cursor.style.left = `${centerX}px`;
@@ -1240,8 +1202,7 @@ function initCursor() {
         cursor.style.left = `${x}px`;
         cursor.style.top = `${y}px`;
         
-        // Add trail particles sparingly
-        if (Math.random() > 0.7) {
+        if (Math.random() > 0.5) {
             const particle = document.createElement('div');
             particle.classList.add('trail-particle');
             particle.style.left = `${x}px`;
@@ -1355,33 +1316,127 @@ function observeReveal() {
 }
 
 // ============================================
-// 13. SYSTEM STATS (realistic via API or simulation)
+// 13. TOAST NOTIFICATION WITH STACKING
 // ============================================
-async function updateSystemStats() {
-    // In production, you could fetch from /api/stats
-    const cpu = Math.floor(Math.random() * 30 + 20);
-    const mem = Math.floor(Math.random() * 40 + 30);
-    document.getElementById('footer-stats').innerHTML = `CPU:${cpu}% MEM:${mem}%`;
-}
-setInterval(updateSystemStats, 2000);
+let activeToasts = [];
 
-function updateClock() {
-    const el = document.getElementById('footer-clock');
-    if (!el) return;
-    const now = new Date();
-    el.textContent = now.toLocaleTimeString();
+function showToast(msg, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    if (type === 'success') toast.style.borderLeftColor = 'var(--neon-green)';
+    if (type === 'error') toast.style.borderLeftColor = 'var(--neon-red)';
+    
+    document.body.appendChild(toast);
+    
+    const baseBottom = 20;
+    const offset = 60;
+    const index = activeToasts.length;
+    toast.style.bottom = `${baseBottom + index * offset}px`;
+    
+    activeToasts.push(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+            activeToasts = activeToasts.filter(t => t !== toast);
+            repositionToasts();
+        }
+    }, 3000);
 }
-setInterval(updateClock, 1000);
 
-function updateFooter(routePath) {
-    const map = { '/': 'HOME', '/asset-store': 'ASSET_STORE', '/ai-projects': 'AI_PROJECTS', '/contact': 'CONTACT', '/admin': 'ADMIN' };
-    const label = map[routePath] || routePath;
-    const el = document.getElementById('footer-route');
-    if (el) el.textContent = label;
+function repositionToasts() {
+    const baseBottom = 20;
+    const offset = 60;
+    activeToasts.forEach((t, i) => {
+        t.style.bottom = `${baseBottom + i * offset}px`;
+    });
 }
 
 // ============================================
-// 14. EASTER EGGS
+// 14. GLOBAL CLICK DELEGATION
+// ============================================
+document.body.addEventListener('click', (e) => {
+    // Router navigation
+    const link = e.target.closest('[data-link]');
+    if (link) {
+        e.preventDefault();
+        navigateTo(link.getAttribute('href'));
+        return;
+    }
+
+    // Loadout modal close (ensures it always works)
+    if (e.target.closest('#close-loadout')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.AppLoadout) window.AppLoadout.toggleModal();
+        return;
+    }
+
+    // Remove from loadout
+    if (e.target.matches('.remove-btn')) {
+        const id = e.target.getAttribute('data-remove-id');
+        window.AppLoadout.removeItem(id);
+        return;
+    }
+
+    // Add to loadout from modal
+    if (e.target.matches('#add-to-loadout-btn') && (currentProject || currentAiProject)) {
+        const item = currentProject || currentAiProject;
+        window.AppLoadout.addItem({
+            id: item.id,
+            name: item.title,
+            type: item.tag
+        });
+        e.target.textContent = "STORED IN MEMORY";
+        e.target.style.background = "rgba(189,0,255,0.2)";
+        setTimeout(() => {
+            document.getElementById('item-modal').classList.remove('active');
+            e.target.textContent = "ACQUIRE ASSET";
+            e.target.style.background = "rgba(0,240,255,0.1)";
+        }, 800);
+        return;
+    }
+
+    // Card click (for project/ai details)
+    const card = e.target.closest('.card');
+    if (card) {
+        const projectId = card.dataset.projectId;
+        const aiId = card.dataset.aiId;
+        if (projectId) openProjectModal(projectId);
+        else if (aiId) openAiModal(aiId);
+        return;
+    }
+
+    // Quick view button
+    const quickBtn = e.target.closest('.quick-view');
+    if (quickBtn) {
+        e.stopPropagation();
+        const id = quickBtn.dataset.quickId || quickBtn.dataset.quickAiId;
+        if (quickBtn.dataset.quickId) openProjectModal(id);
+        else if (quickBtn.dataset.quickAiId) openAiModal(id);
+        return;
+    }
+
+    // Featured card click (home)
+    const featured = e.target.closest('.featured-card');
+    if (featured) {
+        const id = featured.getAttribute('data-project-id');
+        openProjectModal(id);
+        return;
+    }
+
+    // Module card click
+    const moduleCard = e.target.closest('.module-card');
+    if (moduleCard) {
+        const id = moduleCard.getAttribute('data-module-id');
+        openModuleModal(id);
+        return;
+    }
+});
+
+// ============================================
+// 15. EASTER EGGS
 // ============================================
 let konamiIndex = 0;
 const konamiCode = [38,38,40,40,37,39,37,39,66,65]; // up,up,down,down,left,right,left,right,B,A
@@ -1390,7 +1445,6 @@ document.addEventListener('keydown', (e) => {
     if (e.keyCode === konamiCode[konamiIndex]) {
         konamiIndex++;
         if (konamiIndex === konamiCode.length) {
-            // Activate easter egg
             document.body.style.filter = 'hue-rotate(180deg)';
             setTimeout(() => document.body.style.filter = '', 3000);
             const sound = document.getElementById('easter-sound');
@@ -1402,16 +1456,15 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Hover sound (optional)
 document.querySelectorAll('button, a, .card').forEach(el => {
     el.addEventListener('mouseenter', () => {
         const sound = document.getElementById('hover-sound');
-        if (sound && Math.random() > 0.8) sound.play().catch(() => {}); // 20% chance
+        if (sound && Math.random() > 0.8) sound.play().catch(() => {});
     });
 });
 
 // ============================================
-// 15. BOOTSTRAP – ENSURE ROUTER RUNS
+// 16. BOOTSTRAP
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -1435,55 +1488,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         initThreeBackground();
         console.log('[SYSTEM] Three.js background initialized');
 
-        // Global click delegation
-        document.body.addEventListener('click', e => {
-            // Router navigation
-            const link = e.target.closest('[data-link]');
-            if (link) {
-                e.preventDefault();
-                navigateTo(link.getAttribute('href'));
-                return;
-            }
-
-            // Remove from loadout
-            if (e.target.matches('.remove-btn')) {
-                const id = e.target.getAttribute('data-remove-id');
-                window.AppLoadout.removeItem(id);
-            }
-
-            // Add to loadout from modal
-            if (e.target.matches('#add-to-loadout-btn') && (currentProject || currentAiProject)) {
-                const item = currentProject || currentAiProject;
-                window.AppLoadout.addItem({
-                    id: item.id,
-                    name: item.title,
-                    type: item.tag
-                });
-                e.target.textContent = "STORED IN MEMORY";
-                e.target.style.background = "rgba(189,0,255,0.2)";
-                setTimeout(() => {
-                    document.getElementById('item-modal').classList.remove('active');
-                    e.target.textContent = "ACQUIRE ASSET";
-                    e.target.style.background = "rgba(0,240,255,0.1)";
-                }, 800);
-            }
-        });
-
-        // Modal close buttons
+        // Modal close buttons (direct listeners)
         document.getElementById('close-item-modal')?.addEventListener('click', () => {
             document.getElementById('item-modal').classList.remove('active');
         });
-        const closeModuleBtn = document.getElementById('close-module-modal');
-        if (closeModuleBtn) {
-            closeModuleBtn.addEventListener('click', () => {
-                document.getElementById('module-modal').classList.remove('active');
-            });
-        }
+        document.getElementById('close-module-modal')?.addEventListener('click', () => {
+            document.getElementById('module-modal').classList.remove('active');
+        });
 
-        // Setup router for navigation
         window.addEventListener('popstate', router);
         
-        // Initial route – no setTimeout needed
         console.log('[SYSTEM] Initializing router...');
         router();
         console.log('[SYSTEM] Cyber-grid fully operational');
@@ -1499,11 +1513,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Helper function for toasts (if not already defined)
-function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+// ============================================
+// HELPER FUNCTIONS (system stats, clock, footer)
+// ============================================
+async function updateSystemStats() {
+    try {
+        const res = await fetch(`${API_BASE}/stats`);
+        const stats = await res.json();
+        document.getElementById('stat-users').textContent = stats.activeUsers || '--';
+        document.getElementById('stat-orders').textContent = stats.totalOrders || '--';
+        document.getElementById('stat-products').textContent = stats.products || '--';
+    } catch {
+        // fallback
+        document.getElementById('stat-users').textContent = '128';
+        document.getElementById('stat-orders').textContent = '512';
+        document.getElementById('stat-products').textContent = '64';
+    }
+}
+setInterval(updateSystemStats, 2000);
+
+function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+    document.getElementById('clock').textContent = timeStr;
+}
+setInterval(updateClock, 1000);
+
+function updateFooter(routePath) {
+    const footer = document.querySelector('.cyber-footer');
+    if (footer) {
+        const links = footer.querySelectorAll('a');
+        links.forEach(link => {
+            if (link.getAttribute('href') === routePath) {
+                link.classList.add('active');
+            } else {
+                link.classList.remove('active');
+            }
+        });
+    }
 }

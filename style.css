@@ -21,7 +21,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    cursor: none !important; /* will be overridden on mobile */
+    cursor: none !important; /* overridden on mobile */
 }
 
 body {
@@ -986,11 +986,10 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
 .modal-details p { margin-bottom: 2rem; line-height: 1.6; color: #ccc; }
 
 /* =========================================
-   TOAST NOTIFICATION
+   TOAST NOTIFICATION (STACKING)
    ========================================= */
 .toast {
     position: fixed;
-    bottom: 20px;
     right: 20px;
     background: rgba(0,243,255,0.2);
     border-left: 4px solid var(--neon-cyan);
@@ -1000,6 +999,10 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
     animation: slideIn 0.3s ease;
     color: #fff;
     font-family: 'Courier New', monospace;
+    min-width: 200px;
+    max-width: 300px;
+    box-shadow: 0 0 15px rgba(0,240,255,0.3);
+    transition: bottom 0.2s ease;
 }
 @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
@@ -1174,7 +1177,7 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
 }
 
 /* =========================================
-   FIX: Mobile Responsiveness & Input Label Overlap
+   MOBILE RESPONSIVENESS & HIGH-END POLISH
    ========================================= */
 @media (max-width: 768px) {
     /* Disable custom cursor on mobile */
@@ -1187,7 +1190,7 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
         display: none !important;
     }
 
-    /* Adjust input groups for better spacing on small screens */
+    /* Adjust input groups for better spacing */
     .input-group label {
         font-size: 0.8rem;
         top: 8px;
@@ -1205,7 +1208,7 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
         font-size: 0.7rem;
     }
 
-    /* General mobile layout adjustments */
+    /* Navigation adjustments */
     .cyber-nav {
         padding: 1rem;
         flex-wrap: wrap;
@@ -1216,17 +1219,30 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
         flex-wrap: wrap;
         justify-content: flex-end;
     }
+
+    /* Hero section */
     .hero-text h1 {
         font-size: 2.5rem;
+    }
+    .hero-text p {
+        font-size: 1.2rem;
     }
     .floating-image {
         width: 90%;
         height: auto;
     }
+
+    /* Grid layouts */
     .about-grid,
     .comm-grid {
         grid-template-columns: 1fr;
     }
+    .featured-grid,
+    .grid-container {
+        grid-template-columns: 1fr;
+    }
+
+    /* Modals */
     .modal-content {
         flex-direction: column;
     }
@@ -1234,17 +1250,60 @@ h1, h2, h3, h4, .logo, .filter-btn, .cyber-btn, .nav-item, .terminal-title, .sta
         width: 100%;
         height: auto;
     }
-    .featured-grid {
-        grid-template-columns: 1fr;
+    .glass-modal {
+        width: 90%;
+        right: 5%;
+        max-width: none;
     }
-    .grid-container {
-        grid-template-columns: 1fr;
-    }
+
+    /* Chatbot */
     #chatbot-container {
         bottom: 70px;
         right: 10px;
     }
     #chat-window {
         width: 280px;
+    }
+
+    /* Toast notifications */
+    .toast {
+        right: 10px;
+        min-width: 150px;
+        max-width: 250px;
+        font-size: 0.9rem;
+        padding: 0.8rem;
+    }
+
+    /* Footer */
+    #site-footer {
+        font-size: 0.7rem;
+        height: 40px;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+    }
+    #site-footer .status {
+        gap: 0.5rem;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .hero-text h1 {
+        font-size: 1.8rem;
+    }
+    .hero-text p {
+        font-size: 1rem;
+    }
+    .section-header h2 {
+        font-size: 1.8rem;
+    }
+    .cyber-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+    }
+    .filter-btn {
+        padding: 0.4rem 1rem;
+        font-size: 0.8rem;
     }
 }
