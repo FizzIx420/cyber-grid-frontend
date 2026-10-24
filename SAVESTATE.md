@@ -28,3 +28,9 @@
 - Changed draft publication to resolve the current release ID from the releases collection before setting `draft=false`. GitHub's tag lookup endpoint returns 404 for some unpublished draft releases.
 - The final ZIP is now published only after the draft release ID is resolved; successful published CI releases remain subject to three-release retention.
 - Runtime verification pending.
+
+## 2026-10-24: Use robust tag matching for draft release publication
+
+- Replaced the draft-release ID lookup's nested quote expression with an exact tag match using the release list and `awk`, avoiding shell/JQ quote parsing errors.
+- The final ZIP can now publish draft handoffs and run three-release retention without relying on the draft tag endpoint.
+- Runtime verification pending.
