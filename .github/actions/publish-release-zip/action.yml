@@ -1,0 +1,128 @@
+name: Publish rolling release ZIP
+description: Package build outputs, publish to a CI GitHub Release, and retain the three newest successful CI releases.
+inputs:
+  paths:
+    description: Newline-separated files, globs, or directories to include in the ZIP.
+    required: true
+  asset-name:
+    description: Name of the downloadable ZIP release asset.
+    required: true
+  mode:
+    description: Use intermediate for a temporary cross-job handoff ZIP, or final for a completed build ZIP.
+    required: false
+    default: final
+  token:
+    description: GitHub token with contents:write permission.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Package build outputs with recovery metadata
+      id: package
+      shell: bash
+      env:
+        INPUT_PATHS: ${{ inputs.paths }}
+        ASSET_NAME: ${{ inputs.asset-name }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        python3 - <<'PY'
+        import glob, hashlib, os, pathlib, time, zipfile
+
+        root = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+        asset = pathlib.Path(os.environ["ASSET_NAME"]).name
+        if not asset.lower().endswith(".zip"):
+            asset += ".zip"
+        zip_path = pathlib.Path(os.environ["RUNNER_TEMP"]) / asset
+        found = {}
+        for raw in os.environ["INPUT_PATHS"].splitlines():
+            pattern = raw.strip()
+            if not pattern:
+                continue
+            matches = glob.glob(str(root / pattern), recursive=True)
+            for match in matches:
+                p = pathlib.Path(match)
+                if p.is_dir():
+                    for child in p.rglob("*"):
+                        if child.is_file() and ".git" not in child.parts:
+                            found[child.resolve()] = child.resolve().relative_to(root)
+                elif p.is_file():
+                    resolved = p.resolve()
+                    try:
+                        rel = resolved.relative_to(root)
+                    except ValueError:
+                        raise SystemExit(f"Refusing to package a path outside the workspace: {resolved}")
+                    found[resolved] = rel
+        if not found:
+            raise SystemExit("No files matched the requested release ZIP paths; refusing to publish an empty build.")
+        records = []
+        for source, rel in sorted(found.items(), key=lambda x: str(x[1])):
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            records.append((source, rel.as_posix(), digest, source.stat().st_size))
+        recovery = "\n".join([
+            "Rebuild/recovery metadata",
+            f"Repository: {os.environ.get('GITHUB_REPOSITORY', '')}",
+            f"Commit: {os.environ.get('GITHUB_SHA', '')}",
+            f"Ref: {os.environ.get('GITHUB_REF', '')}",
+            f"Workflow: {os.environ.get('GITHUB_WORKFLOW', '')}",
+            f"Run ID: {os.environ.get('GITHUB_RUN_ID', '')}",
+            f"Run attempt: {os.environ.get('GITHUB_RUN_ATTEMPT', '')}",
+            f"Run number: {os.environ.get('GITHUB_RUN_NUMBER', '')}",
+            f"Run URL: https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}",
+            f"Created UTC: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+            "",
+            "Rebuild source: check out the commit above and rerun the named workflow with the same inputs/secrets.",
+            "Included files and SHA-256:",
+            *[f"{digest}  {name} ({size} bytes)" for _, name, digest, size in records],
+            ""
+        ])
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+            for source, name, _, _ in records:
+                z.write(source, name)
+            z.writestr("BUILD-RECOVERY.txt", recovery)
+            z.writestr("SHA256SUMS.txt", "".join(f"{digest}  {name}\n" for _, name, digest, _ in records))
+        print(f"Release ZIP ready: {zip_path} ({zip_path.stat().st_size} bytes; {len(records)} files)")
+        print(f"ZIP SHA-256: {hashlib.sha256(zip_path.read_bytes()).hexdigest()}")
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write(f"zip_path={zip_path}\n")
+            output.write(f"asset_name={asset}\n")
+        PY
+    - name: Publish ZIP and retain the three newest successful CI releases
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ZIP_PATH: ${{ steps.package.outputs.zip_path }}
+        ASSET_NAME: ${{ inputs.asset-name }}
+        MODE: ${{ inputs.mode }}
+      run: |
+        set -euo pipefail
+        TAG="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        ASSET="$(basename "${ZIP_PATH}")"
+        if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+          gh release upload "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
+        else
+          if ! gh release create "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" \
+            --title "Successful build ${GITHUB_RUN_NUMBER}" \
+            --notes "Automated build ZIP for commit ${GITHUB_SHA}. Contains build outputs, SHA-256 inventory, and rebuild metadata."; then
+            gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
+            gh release upload "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
+          fi
+        fi
+        if [[ "${MODE}" == "final" ]]; then
+          while IFS= read -r old_asset; do
+            [[ "${old_asset}" == intermediate-*.zip ]] || continue
+            gh release delete-asset "${TAG}" "${old_asset}" --repo "${GITHUB_REPOSITORY}" --yes || true
+          done < <(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
+          mapfile -t old_tags < <(
+            gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate \
+              --jq '.[] | select(.tag_name | startswith("ci-")) | [.tag_name, .created_at] | @tsv' \
+              | sort -r -k2,2 | tail -n +4 | cut -f1
+          )
+          for old_tag in "${old_tags[@]}"; do
+            [[ -n "${old_tag}" ]] || continue
+            gh release delete "${old_tag}" --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag
+          done
+          echo "Rolling retention complete: current successful CI release plus the two newest predecessors."
+        else
+          echo "Published intermediate release ZIP for same-run handoff; final job must publish mode=final."
+        fi
