@@ -118,7 +118,11 @@ runs:
             [[ "${old_asset}" == intermediate-*.zip ]] || continue
             gh release delete-asset "${TAG}" "${old_asset}" --repo "${GITHUB_REPOSITORY}" --yes || true
           done < <(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
-          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.id')"
+          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate --jq ".[] | select(.tag_name == \\\"${TAG}\\\") | .id" | head -n1)"
+          if [[ -z "${release_id}" ]]; then
+            echo "Could not locate the current CI release by tag ${TAG}."
+            exit 1
+          fi
           is_draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" --jq '.draft')"
           if [[ "${is_draft}" == "true" ]]; then
             gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false >/dev/null

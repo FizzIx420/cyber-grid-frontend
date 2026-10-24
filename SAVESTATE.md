@@ -22,3 +22,9 @@
 
 - Removed a redundant closing `fi` from the shared release publisher. Intermediate draft ZIPs and final published ZIPs now follow a syntactically balanced shell block.
 - The policy guard continues to prohibit Actions artifact uploads and require release ZIP publishing for build outputs. Runtime verification pending.
+
+## 2026-10-24: Publish draft CI releases using the release-list endpoint
+
+- Changed draft publication to resolve the current release ID from the releases collection before setting `draft=false`. GitHub's tag lookup endpoint returns 404 for some unpublished draft releases.
+- The final ZIP is now published only after the draft release ID is resolved; successful published CI releases remain subject to three-release retention.
+- Runtime verification pending.
