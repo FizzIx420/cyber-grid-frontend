@@ -1,0 +1,77 @@
+name: Release ZIP policy guard
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-zip-policy:
+    name: Enforce release ZIP and temporary-artifact policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check build publication and artifact retention rules
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          workflow_dir = Path(".github/workflows")
+          build_output = re.compile(
+              r"assemble(?:Debug|Release)|bundleRelease|export-(?:debug|release)|"
+              r"build/libs/\*\.jar|outputs/apk|outputs/bundle|APK_PATH|"
+              r"PaperSkies-debug\.apk|ibex_universal_cx_trainer_ios\.ipa",
+              re.IGNORECASE,
+          )
+          issues = []
+
+          for path in sorted(list(workflow_dir.glob("*.yml")) + list(workflow_dir.glob("*.yaml"))):
+              if path.name == "release-zip-policy-check.yml":
+                  continue
+              text = path.read_text(encoding="utf-8")
+              has_publish_trigger = bool(re.search(r"(?m)^  (?:push|workflow_dispatch):", text))
+              if build_output.search(text) and has_publish_trigger and "./.github/actions/publish-release-zip" not in text:
+                  issues.append(
+                      f"{path}: build output pattern found, but the workflow does not use "
+                      ".github/actions/publish-release-zip"
+                  )
+
+              lines = text.splitlines()
+              for i, line in enumerate(lines):
+                  if not re.search(r"uses:\s*actions/upload-artifact@v\d+", line):
+                      continue
+                  indent = len(line) - len(line.lstrip(" "))
+                  step_indent = indent if re.match(r"^\s*-\s+uses:", line) else indent - 2
+                  start = i
+                  for j in range(i, -1, -1):
+                      j_indent = len(lines[j]) - len(lines[j].lstrip(" "))
+                      if j_indent == step_indent and re.match(r"^\s*-\s+", lines[j]):
+                          start = j
+                          break
+                  end = len(lines)
+                  for j in range(start + 1, len(lines)):
+                      j_indent = len(lines[j]) - len(lines[j].lstrip(" "))
+                      if j_indent == step_indent and re.match(r"^\s*-\s+", lines[j]):
+                          end = j
+                          break
+                  block = "\n".join(lines[start:end])
+                  if not re.search(r"retention-days:\s*1\b", block):
+                      issues.append(
+                          f"{path}: Actions artifact upload at line {i + 1} must use retention-days: 1"
+                      )
+
+          if issues:
+              print("Release ZIP policy violations:")
+              for issue in issues:
+                  print(f"- {issue}")
+              sys.exit(1)
+          print("Release ZIP policy PASS: build outputs use the release publisher; temporary Actions artifacts expire after one day.")
+          PY
