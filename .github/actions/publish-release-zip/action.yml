@@ -101,7 +101,12 @@ runs:
         if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
           gh release upload "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
         else
-          if ! gh release create "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" \
+          if [[ "${MODE}" == "intermediate" ]]; then
+            create_flag=(--draft)
+          else
+            create_flag=()
+          fi
+          if ! gh release create "${TAG}" "${ZIP_PATH}" --repo "${GITHUB_REPOSITORY}" "${create_flag[@]}" \
             --title "Successful build ${GITHUB_RUN_NUMBER}" \
             --notes "Automated build ZIP for commit ${GITHUB_SHA}. Contains build outputs, SHA-256 inventory, and rebuild metadata."; then
             gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
@@ -113,16 +118,22 @@ runs:
             [[ "${old_asset}" == intermediate-*.zip ]] || continue
             gh release delete-asset "${TAG}" "${old_asset}" --repo "${GITHUB_REPOSITORY}" --yes || true
           done < <(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
+          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.id')"
+          is_draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" --jq '.draft')"
+          if [[ "${is_draft}" == "true" ]]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false >/dev/null
+          fi
           mapfile -t old_tags < <(
             gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate \
-              --jq '.[] | select(.tag_name | startswith("ci-")) | [.tag_name, .created_at] | @tsv' \
+              --jq '.[] | select(.draft == false and (.tag_name | startswith("ci-"))) | [.tag_name, .created_at] | @tsv' \
               | sort -r -k2,2 | tail -n +4 | cut -f1
           )
           for old_tag in "${old_tags[@]}"; do
             [[ -n "${old_tag}" ]] || continue
             gh release delete "${old_tag}" --repo "${GITHUB_REPOSITORY}" --yes --cleanup-tag
           done
-          echo "Rolling retention complete: current successful CI release plus the two newest predecessors."
+          echo "Rolling retention complete: three newest successful published CI releases retained."
         else
-          echo "Published intermediate release ZIP for same-run handoff; final job must publish mode=final."
+          echo "Published intermediate ZIP to a draft CI release for same-run handoff; final job must publish mode=final."
+        fi
         fi
