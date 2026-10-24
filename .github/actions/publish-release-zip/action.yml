@@ -118,7 +118,7 @@ runs:
             [[ "${old_asset}" == intermediate-*.zip ]] || continue
             gh release delete-asset "${TAG}" "${old_asset}" --repo "${GITHUB_REPOSITORY}" --yes || true
           done < <(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')
-          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate --jq '.[] | [.id, .tag_name] | @tsv' | awk -F '\\t' -v tag="${TAG}" '$2 == tag { print $1; exit }')"
+          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate --jq '.[] | [.id, .tag_name] | @tsv' | awk -F '\t' -v tag="${TAG}" '$2 == tag { print $1; exit }')"
           if [[ -z "${release_id}" ]]; then
             echo "Could not locate the current CI release by tag ${TAG}."
             exit 1

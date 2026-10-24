@@ -34,3 +34,8 @@
 - Replaced the draft-release ID lookup's nested quote expression with an exact tag match using the release list and `awk`, avoiding shell/JQ quote parsing errors.
 - The final ZIP can now publish draft handoffs and run three-release retention without relying on the draft tag endpoint.
 - Runtime verification pending.
+
+## 2026-10-24: Correct release tag lookup delimiter escaping
+
+- Corrected the tab delimiter in the release-list lookup so `awk` compares the exact `ci-*` tag field and returns the matching release ID reliably.
+- This prevents the final publisher from failing while resolving a draft release. Runtime verification pending.
